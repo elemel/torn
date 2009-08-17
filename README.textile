@@ -6,3 +6,6 @@ h2. Skeleton Editor
 
 !http://lh6.ggpht.com/_E78-sGZtKx8/SomsvtH-BgI/AAAAAAAAAHg/7LSO6TJ91bo/s800/torn-screenshot.png!
 
+h2. Animation Editor
+
+!http://lh3.ggpht.com/_E78-sGZtKx8/SonSVzWmkTI/AAAAAAAAAH0/gCDJZ4-zbBM/s800/torn-screenshot.png!
