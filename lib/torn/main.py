@@ -37,34 +37,10 @@ def draw_circle(center=(0, 0), radius=1, vertex_count=100):
         vertices.append((x + radius * cos(angle), y + radius * sin(angle)))
     draw_polygon(vertices)
 
-def get_bounding_box(points):
-    x1 = min(x for x, y in points)
-    y1 = min(y for x, y in points)
-    x2 = max(x for x, y in points)
-    y2 = max(y for x, y in points)
-    return (x1, y1), (x2, y2)
-
-def get_point_distance(p1, p2):
-    x1, y1 = p1
-    x2, y2 = p2
-    return sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
-
-def get_closest_point_on_segment(p, segment):
-    """
-    http://local.wasp.uwa.edu.au/~pbourke/geometry/pointline/
-    """
-    p1, p2 = segment
-    if p1 == p2:
-        return p1
-    x, y = p
-    x1, y1 = p1
-    x2, y2 = p2
-    dx = x2 - x1
-    dy = y2 - y1
-    u = ((x - x1) * dx + (y - y1) * dy) / (dx * dx + dy * dy)
-    u = max(u, 0)
-    u = min(u, 1)
-    return x1 + u * dx, y1 + u * dy
+def save_screenshot(name='screenshot.png', format='RGB'):
+    image = pyglet.image.get_buffer_manager().get_color_buffer().image_data
+    image.format = format
+    image.save(name)
 
 class Camera(object):
     def __init__(self, translation=None, scale=1):
@@ -164,6 +140,8 @@ class MyWindow(pyglet.window.Window):
     def on_key_press(self, symbol, modifiers):
         if symbol == pyglet.window.key.ESCAPE:
             self.on_close()
+        elif symbol == pyglet.window.key.F12:
+            save_screenshot('torn-screenshot.png')
         else:
             self.my_screen.on_key_press(symbol, modifiers)
 
