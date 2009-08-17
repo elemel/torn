@@ -117,7 +117,10 @@ class MyWindow(pyglet.window.Window):
         super(MyWindow, self).__init__(**kwargs)
         self.fps = fps
         self.fps_display = pyglet.clock.ClockDisplay()
-        self.my_screen = SkeletonEditor(self)
+        if '--animation-editor' in sys.argv:
+            self.my_screen = AnimationEditor(self)
+        else:
+            self.my_screen = SkeletonEditor(self)
 
     def on_draw(self):
         self.my_screen.on_draw()
@@ -290,6 +293,46 @@ class SkeletonEditor(Screen):
         if symbol == pyglet.window.key.MINUS:
             self.camera.scale /= self.zoom_step
 
+class Pose(object):
+    def __init__(self, skeleton):
+        self.angles = [[0] * (len(l.vertices) - 1) for l in skeleton.limbs]
+
+class Animation(object):
+    def __init__(self, skeleton):
+        self.poses = [Pose(skeleton)]
+
+class AnimationEditor(Screen):
+    def __init__(self, window):
+        self.window = window
+        translation = Vector2(self.window.width / 2, self.window.height / 2)
+        scale = min(self.window.width, self.window.height) / 3.5
+        self.camera = Camera(translation, scale)
+        self.screen_epsilon = 10
+        self.skeleton = load_object('torn-skeleton.pickle')
+        try:
+            self.animation = load_object('torn-animation.pickle')
+        except:
+            self.animation = Animation(skeleton)
+        self.pose_index = 0
+
+    def on_close(self):
+        save_object(self.animation, 'torn-animation.pickle')
+
+    def on_draw(self):
+        self.window.clear()
+        glPushMatrix()
+        self.camera.transform_view()
+        self.draw_pose()
+        glPopMatrix()
+
+    def draw_pose(self):
+        pose = self.animation.poses[self.pose_index]
+        for polygon in self.skeleton.polygons:
+            draw_polygon(polygon.vertices, polygon.closed)
+        for limb in self.skeleton.limbs:
+            draw_circle(limb.vertices[-1],
+                        self.screen_epsilon / self.camera.scale)
+
 class Level(object):
     def __init__(self):
         self.time = 0
@@ -300,6 +343,15 @@ class Level(object):
         self.world.Step(dt, 10, 10)
 
 def main():
+    if '-h' in sys.argv or '--help' in sys.argv:
+        print """
+Options:
+  --animation-editor    Start the animation editor.
+  --fullscreen          Enable fullscreen mode.
+  -h, --help            You're looking at it.
+""".strip()
+        return
+
     fps = '--fps' in sys.argv
     fullscreen = '--fullscreen' in sys.argv
     window = MyWindow(fps=fps, fullscreen=fullscreen)
