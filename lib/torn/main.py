@@ -76,9 +76,14 @@ def save_object(obj, path):
 
 class Polygon(object):
     def __init__(self, vertices, closed=True):
-        self.vertices = list(vertices)
+        self.vertices = list(v.copy() for v in vertices)
+        assert len(self.vertices) >= 1
         assert all(isinstance(v, Point2) for v in self.vertices)
+        assert type(closed) is bool
         self.closed = closed
+
+    def copy(self):
+        return Polygon(self.vertices, self.closed)
 
     @property
     def edges(self):
@@ -87,6 +92,36 @@ class Polygon(object):
         if self.closed:
             edges.append(LineSegment2(self.vertices[-1], self.vertices[0]))
         return edges
+
+    @property
+    def starting_point(self):
+        return self.vertices[0]
+
+    @property
+    def end_point(self):
+        return self.vertices[0 if self.closed else -1]
+
+    @property
+    def max_radius(self):
+        return 0 if self.closed else sum(e.length for e in self.edges)
+
+    @property
+    def min_radius(self):
+        if self.closed or len(self.vertices) <= 1:
+            return 0
+        lengths = [e.length for e in self.edges]
+        lengths.sort()
+        return max(0, lengths[-1] - sum(lengths[:-1]))
+
+    def solve(self, end_point):
+        if self.closed:
+            return
+        if len(self.vertices) == 2 and end_point != self.starting_point:
+            length = abs(self.end_point - self.starting_point)
+            direction = (end_point - self.starting_point).normalize()
+            self.vertices[-1] = self.starting_point + length * direction
+        elif len(self.vertices) == 3:
+            pass
 
 class Skeleton(object):
     def __init__(self):
@@ -295,7 +330,7 @@ class SkeletonEditor(Screen):
 
 class Pose(object):
     def __init__(self, skeleton):
-        self.angles = [[0] * (len(l.vertices) - 1) for l in skeleton.limbs]
+        self.end_points = [l.end_point.copy() for l in skeleton.limbs]
 
 class Animation(object):
     def __init__(self, skeleton):
@@ -312,8 +347,22 @@ class AnimationEditor(Screen):
         try:
             self.animation = load_object('torn-animation.pickle')
         except:
-            self.animation = Animation(skeleton)
+            self.animation = Animation(self.skeleton)
         self.pose_index = 0
+        self.history = []
+        self.drag_limbs = self.get_drag_limbs()
+        self.limb_index = 0
+        self.pan_step = 20
+        self.zoom_step = 1.2
+
+    def get_drag_limbs(self):
+        limbs = []
+        pose = self.animation.poses[self.pose_index]
+        for i, limb in enumerate(self.skeleton.limbs):
+            limb = limb.copy()
+            limb.solve(pose.end_points[i])
+            limbs.append(limb)
+        return limbs
 
     def on_close(self):
         save_object(self.animation, 'torn-animation.pickle')
@@ -326,12 +375,48 @@ class AnimationEditor(Screen):
         glPopMatrix()
 
     def draw_pose(self):
-        pose = self.animation.poses[self.pose_index]
-        for polygon in self.skeleton.polygons:
-            draw_polygon(polygon.vertices, polygon.closed)
-        for limb in self.skeleton.limbs:
-            draw_circle(limb.vertices[-1],
+        draw_polygon(self.skeleton.torso.vertices, True)
+        for limb in self.drag_limbs:
+            draw_polygon(limb.vertices, limb.closed)
+            draw_circle(limb.end_point,
                         self.screen_epsilon / self.camera.scale)
+
+    def on_mouse_press(self, x, y, button, modifiers):
+        self.history.append(copy.deepcopy(self.animation))
+        self.drag_vertex = None
+        mouse_point = self.camera.get_world_point(Point2(x, y))
+        epsilon = self.screen_epsilon / self.camera.scale
+        mouse_circle = Circle(mouse_point, epsilon)
+        for i, limb in enumerate(self.drag_limbs):
+            if mouse_circle.intersect(limb.end_point):
+                self.limb_index = i
+                break
+
+    def on_mouse_drag(self, x, y, dx, dy, button, modifiers):
+        mouse_point = self.camera.get_world_point(Point2(x, y))
+        limb = self.skeleton.limbs[self.limb_index].copy()
+        limb.solve(mouse_point)
+        self.drag_limbs[self.limb_index] = limb
+        pose = self.animation.poses[self.pose_index]
+        pose.end_points[self.limb_index] = limb.end_point.copy()
+
+    def on_key_press(self, symbol, modifiers):
+        if symbol == pyglet.window.key.BACKSPACE:
+            if self.history:
+                self.animation = self.history.pop()
+                self.drag_limbs = self.get_drag_limbs()
+        if symbol == pyglet.window.key.LEFT:
+            self.camera.translation.x += self.pan_step
+        if symbol == pyglet.window.key.RIGHT:
+            self.camera.translation.x -= self.pan_step
+        if symbol == pyglet.window.key.UP:
+            self.camera.translation.y -= self.pan_step
+        if symbol == pyglet.window.key.DOWN:
+            self.camera.translation.y += self.pan_step
+        if symbol == pyglet.window.key.PLUS:
+            self.camera.scale *= self.zoom_step
+        if symbol == pyglet.window.key.MINUS:
+            self.camera.scale /= self.zoom_step
 
 class Level(object):
     def __init__(self):
