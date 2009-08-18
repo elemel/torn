@@ -94,6 +94,10 @@ class Polygon(object):
         return edges
 
     @property
+    def lengths(self):
+        return [e.length for e in self.edges]
+
+    @property
     def starting_point(self):
         return self.vertices[0]
 
@@ -103,7 +107,7 @@ class Polygon(object):
 
     @property
     def max_radius(self):
-        return 0 if self.closed else sum(e.length for e in self.edges)
+        return 0 if self.closed else sum(self.lengths)
 
     @property
     def min_radius(self):
@@ -117,11 +121,16 @@ class Polygon(object):
         if self.closed:
             return
         if len(self.vertices) == 2 and end_point != self.starting_point:
-            length = abs(self.end_point - self.starting_point)
-            direction = (end_point - self.starting_point).normalize()
-            self.vertices[-1] = self.starting_point + length * direction
+            vector = end_point - self.starting_point
+            vector.normalize()
+            self.vertices[1] = self.starting_point + self.max_radius * vector
         elif len(self.vertices) == 3:
-            pass
+            vector = end_point - self.starting_point
+            if abs(vector) >= self.max_radius:
+                vector.normalize()
+                lengths = self.lengths
+                self.vertices[1] = self.starting_point + vector * lengths[0]
+                self.vertices[2] = self.vertices[1] + vector * lengths[1]
 
 class Skeleton(object):
     def __init__(self):
