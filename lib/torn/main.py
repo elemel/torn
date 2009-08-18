@@ -118,19 +118,50 @@ class Polygon(object):
         return max(0, lengths[-1] - sum(lengths[:-1]))
 
     def solve(self, end_point):
-        if self.closed:
-            return
-        if len(self.vertices) == 2 and end_point != self.starting_point:
+        if not self.closed:
+            if len(self.vertices) == 2:
+                self._solve_one_edge(end_point)
+            elif len(self.vertices) == 3:
+                self._solve_two_edges(end_point)
+
+    def _solve_one_edge(self, end_point):
+        if end_point != self.starting_point:
             vector = end_point - self.starting_point
             vector.normalize()
             self.vertices[1] = self.starting_point + self.max_radius * vector
-        elif len(self.vertices) == 3:
-            vector = end_point - self.starting_point
-            if abs(vector) >= self.max_radius:
-                vector.normalize()
-                lengths = self.lengths
-                self.vertices[1] = self.starting_point + vector * lengths[0]
-                self.vertices[2] = self.vertices[1] + vector * lengths[1]
+
+    def _solve_two_edges(self, end_point):
+        v = end_point - self.starting_point
+        d = abs(v)
+        if d >= self.max_radius:
+            v.normalize()
+            d1, d2 = self.lengths
+            self.vertices[1] = self.vertices[0] + d1 * v 
+            self.vertices[2] = self.vertices[1] + d2 * v
+        elif d <= self.min_radius:
+            pass
+        else:
+            d1, d2 = self.lengths
+
+            # Closed form solution 2 from "Oh My God, I Inverted Kine!" by
+            # Jeff Lander.
+            #
+            # http://www.darwin3d.com/gamedev/articles/col0998.pdf
+            a3 = atan2(v.y, v.x)
+            a4 = acos((v.x ** 2 + v.y ** 2 + d1 ** 2 -
+                       d2 ** 2) / (2 * d1 * d))
+
+            # Don't mirror the polygon.
+            v1 = self.vertices[1] - self.vertices[0]
+            v2 = self.vertices[2] - self.vertices[1]
+            z = v1.x * v2.y - v2.x * v1.y
+            if z < 0:
+                a = a3 + a4
+            else:
+                a = a3 - a4
+
+            self.vertices[1] = self.vertices[0] + d1 * Vector2(cos(a), sin(a))
+            self.vertices[2] = end_point.copy()
 
 class Skeleton(object):
     def __init__(self):
