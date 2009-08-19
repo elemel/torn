@@ -376,11 +376,15 @@ class SkeletonEditor(Screen):
 
 class Pose(object):
     def __init__(self, skeleton):
+        assert isinstance(skeleton, Skeleton)
         self.end_points = [l.end_point.copy() for l in skeleton.limbs]
 
 class Animation(object):
-    def __init__(self, skeleton):
+    def __init__(self, skeleton, looped=True):
+        assert isinstance(skeleton, Skeleton)
+        assert type(looped) is bool
         self.poses = [Pose(skeleton)]
+        self.looped = looped
 
 class AnimationEditor(Screen):
     def __init__(self, window):
@@ -419,16 +423,35 @@ class AnimationEditor(Screen):
         self.camera.transform_view()
         self.draw_pose()
         glPopMatrix()
+        self.draw_timeline()
 
     def draw_pose(self):
+        glColor3f(1, 1, 1)
         draw_polygon(self.skeleton.torso.vertices, True)
-        for limb in self.drag_limbs:
+        for i, limb in enumerate(self.drag_limbs):
+            glColor3f(1, 1, 1)
             draw_polygon(limb.vertices, limb.closed)
+            glColor3f(i != self.limb_index, 1, i != self.limb_index)
             draw_circle(limb.end_point,
                         self.screen_epsilon / self.camera.scale)
 
+    def draw_timeline(self):
+        point_count = len(self.animation.poses)
+        if point_count >= 2 and self.animation.looped:
+            point_count += 1
+        width = self.window.width / point_count
+        y = 2 * self.screen_epsilon
+        glColor3f(1, 1, 1)
+        draw_polygon([(width / 2, y), (self.window.width - width / 2, y)],
+                     closed=False)
+        for i in xrange(point_count):
+            current = (i % len(self.animation.poses)) == self.pose_index
+            glColor3f(not current, 1, not current)
+            x = width / 2 + i * width
+            draw_circle((x, y), self.screen_epsilon)
+
     def on_mouse_press(self, x, y, button, modifiers):
-        self.history.append(copy.deepcopy(self.animation))
+        self.history.append((self.pose_index, copy.deepcopy(self.animation)))
         self.drag_vertex = None
         mouse_point = self.camera.get_world_point(Point2(x, y))
         epsilon = self.screen_epsilon / self.camera.scale
@@ -454,8 +477,24 @@ class AnimationEditor(Screen):
     def on_key_press(self, symbol, modifiers):
         if symbol == pyglet.window.key.BACKSPACE:
             if self.history:
-                self.animation = self.history.pop()
+                self.pose_index, self.animation = self.history.pop()
                 self.drag_limbs = self.get_drag_limbs()
+        if symbol == pyglet.window.key.INSERT:
+            pose = copy.deepcopy(self.animation.poses[self.pose_index])
+            self.animation.poses[self.pose_index:self.pose_index] = [pose]
+        if symbol == pyglet.window.key.DELETE:
+            if len(self.animation.poses) >= 2:
+                del self.animation.poses[self.pose_index]
+                self.pose_index = min(self.pose_index,
+                                      len(self.animation.poses) - 1)
+        if symbol == pyglet.window.key.PAGEUP:
+            self.pose_index -= 1
+            self.pose_index %= len(self.animation.poses)
+            self.drag_limbs = self.get_drag_limbs()
+        if symbol == pyglet.window.key.PAGEDOWN:
+            self.pose_index += 1
+            self.pose_index %= len(self.animation.poses)
+            self.drag_limbs = self.get_drag_limbs()
         if symbol == pyglet.window.key.LEFT:
             self.camera.translation.x += self.pan_step
         if symbol == pyglet.window.key.RIGHT:
