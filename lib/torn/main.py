@@ -133,16 +133,22 @@ class Polygon(object):
     def _solve_two_edges(self, end_point):
         v = end_point - self.starting_point
         d = abs(v)
-        if d >= self.max_radius:
+        d1, d2 = self.lengths
+        if d == 0:
+            v = self.vertices[1] - self.vertices[0]
             v.normalize()
-            d1, d2 = self.lengths
-            self.vertices[1] = self.vertices[0] + d1 * v 
+            self.vertices[2] = self.vertices[1] - d2 * v
+        elif d >= self.max_radius:
+            v.normalize()
+            self.vertices[1] = self.vertices[0] + d1 * v
             self.vertices[2] = self.vertices[1] + d2 * v
         elif d <= self.min_radius:
-            pass
+            v.normalize()
+            if d1 < d2:
+                v = -v
+            self.vertices[1] = self.vertices[0] + d1 * v
+            self.vertices[2] = self.vertices[1] - d2 * v
         else:
-            d1, d2 = self.lengths
-
             # Closed form solution 2 from "Oh My God, I Inverted Kine!" by
             # Jeff Lander.
             #
@@ -391,7 +397,7 @@ class AnimationEditor(Screen):
         self.pose_index = 0
         self.history = []
         self.drag_limbs = self.get_drag_limbs()
-        self.limb_index = 0
+        self.limb_index = None
         self.pan_step = 20
         self.zoom_step = 1.2
 
@@ -433,12 +439,17 @@ class AnimationEditor(Screen):
                 break
 
     def on_mouse_drag(self, x, y, dx, dy, button, modifiers):
+        if self.limb_index is None:
+            return
         mouse_point = self.camera.get_world_point(Point2(x, y))
         limb = self.skeleton.limbs[self.limb_index].copy()
         limb.solve(mouse_point)
         self.drag_limbs[self.limb_index] = limb
         pose = self.animation.poses[self.pose_index]
         pose.end_points[self.limb_index] = limb.end_point.copy()
+
+    def on_mouse_release(self, x, y, button, modifiers):
+        self.limb_index = None
 
     def on_key_press(self, symbol, modifiers):
         if symbol == pyglet.window.key.BACKSPACE:
