@@ -8,6 +8,7 @@ from math import *
 import cPickle as pickle
 import pyglet
 from pyglet.gl import *
+import rabbyt
 import random
 import sys
 
@@ -200,6 +201,8 @@ class MyWindow(pyglet.window.Window):
         self.fps_display = pyglet.clock.ClockDisplay()
         if '--animation-editor' in sys.argv:
             self.my_screen = AnimationEditor(self)
+        elif '--skin-editor' in sys.argv:
+            self.my_screen = SkinEditor(self)
         else:
             self.my_screen = SkeletonEditor(self)
 
@@ -374,6 +377,61 @@ class SkeletonEditor(Screen):
         if symbol == pyglet.window.key.MINUS:
             self.camera.scale /= self.zoom_step
 
+class Scrap(object):
+    def __init__(self, name, position=None, scale=1, angle=0):
+        if position is None:
+            position = Vector2()
+        assert isinstance(position, Vector2)
+        assert type(scale) in (int, float)
+        assert type(angle) in (int, float)
+        self.name = name
+        self.position = position
+        self.scale = scale
+        self.angle = angle
+
+class Skin(object):
+    def __init__(self):
+        self.scraps = []
+
+class SkinEditor(Screen):
+    def __init__(self, window):
+        self.window = window
+        translation = Vector2(self.window.width / 2, self.window.height / 2)
+        scale = min(self.window.width, self.window.height) / 3.5
+        self.camera = Camera(translation, scale)
+        self.screen_epsilon = 10
+        try:
+            self.skin = load_object('torn-skin.pickle')
+        except:
+            self.skin = Skin()
+            self.skin.scraps.append(Scrap(name='head.png', scale=0.005))
+        self.sprites = [rabbyt.Sprite(s.name, scale=s.scale)
+                        for s in self.skin.scraps]
+
+    def on_draw(self):
+        self.window.clear()
+        glPushMatrix()
+        self.camera.transform_view()
+        self.draw_skin()
+        glPopMatrix()
+
+    def draw_skin(self):
+        rabbyt.render_unsorted(self.sprites)
+        for i, scrap in enumerate(self.skin.scraps):
+            glDisable(GL_TEXTURE_2D)
+            glColor3f(1, 1, 1)
+            draw_circle(scrap.position,
+                        self.screen_epsilon / self.camera.scale)
+            texture = self.sprites[i].texture
+            radius = scrap.scale * (texture.width + texture.height) / 4
+            direction = Vector2(cos(scrap.angle), sin(scrap.angle))
+            draw_circle(scrap.position, radius)
+            draw_circle(scrap.position + radius * direction,
+                        self.screen_epsilon / self.camera.scale)
+
+    def on_close(self):
+        save_object(self.skin, 'torn-skin.pickle')
+
 class Pose(object):
     def __init__(self, skeleton):
         assert isinstance(skeleton, Skeleton)
@@ -529,6 +587,7 @@ Options:
 
     fps = '--fps' in sys.argv
     fullscreen = '--fullscreen' in sys.argv
+    rabbyt.set_default_attribs()
     window = MyWindow(fps=fps, fullscreen=fullscreen)
     pyglet.app.run()
 
