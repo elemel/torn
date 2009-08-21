@@ -393,41 +393,55 @@ class Skin(object):
     def __init__(self):
         self.scraps = []
 
+class View(object):
+    pass
+
+class ScrapView(View):
+    def __init__(self, scrap):
+        self.scrap = scrap
+        self.sprite = rabbyt.Sprite(scrap.name, scale=scrap.scale)
+        texture = self.sprite.texture
+        self.radius = self.scrap.scale * (texture.width + texture.height) / 4
+        self.direction = Vector2(cos(self.scrap.angle), sin(self.scrap.angle))
+
+    def draw(self, mouse_radius):
+        self.sprite.render()
+        glDisable(GL_TEXTURE_2D)
+        glColor3f(1, 1, 1)
+        draw_circle(self.scrap.position, mouse_radius)
+        draw_circle(self.scrap.position, self.radius)
+        draw_circle(self.scrap.position + self.radius * self.direction,
+                    mouse_radius)
+
+class SkinView(View):
+    def __init__(self, skin):
+        self.skin = skin
+        self.scrap_views = [ScrapView(s) for s in self.skin.scraps]
+
+    def draw(self, mouse_radius):
+        for scrap_view in self.scrap_views:
+            scrap_view.draw(mouse_radius)
+
 class SkinEditor(Screen):
     def __init__(self, window):
         self.window = window
         translation = Vector2(self.window.width / 2, self.window.height / 2)
         scale = min(self.window.width, self.window.height) / 3.5
         self.camera = Camera(translation, scale)
-        self.screen_epsilon = 10
+        self.mouse_radius = 10
         try:
             self.skin = load_object('torn-skin.pickle')
         except:
             self.skin = Skin()
             self.skin.scraps.append(Scrap(name='head.png', scale=0.005))
-        self.sprites = [rabbyt.Sprite(s.name, scale=s.scale)
-                        for s in self.skin.scraps]
+        self.skin_view = SkinView(self.skin)
 
     def on_draw(self):
         self.window.clear()
         glPushMatrix()
         self.camera.transform_view()
-        self.draw_skin()
+        self.skin_view.draw(self.mouse_radius / self.camera.scale)
         glPopMatrix()
-
-    def draw_skin(self):
-        rabbyt.render_unsorted(self.sprites)
-        for i, scrap in enumerate(self.skin.scraps):
-            glDisable(GL_TEXTURE_2D)
-            glColor3f(1, 1, 1)
-            draw_circle(scrap.position,
-                        self.screen_epsilon / self.camera.scale)
-            texture = self.sprites[i].texture
-            radius = scrap.scale * (texture.width + texture.height) / 4
-            direction = Vector2(cos(scrap.angle), sin(scrap.angle))
-            draw_circle(scrap.position, radius)
-            draw_circle(scrap.position + radius * direction,
-                        self.screen_epsilon / self.camera.scale)
 
     def on_close(self):
         save_object(self.skin, 'torn-skin.pickle')
