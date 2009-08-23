@@ -12,6 +12,9 @@ import rabbyt
 import random
 import sys
 
+def rad_to_deg(angle_rad):
+    return angle_rad * 180 / pi
+
 def create_aabb(lower_bound=(-1, -1), upper_bound=(1, 1)):
     aabb = b2AABB()
     aabb.lowerBound = lower_bound
@@ -197,6 +200,9 @@ class Skeleton(object):
 class MyWindow(pyglet.window.Window):
     def __init__(self, fps=False, **kwargs):
         super(MyWindow, self).__init__(**kwargs)
+        rabbyt.set_default_attribs()
+        glClearColor(1, 1, 1, 0)
+        glColor3f(0, 0, 0)
         self.fps = fps
         self.fps_display = pyglet.clock.ClockDisplay()
         if '--animation-editor' in sys.argv:
@@ -399,10 +405,12 @@ class View(object):
 class ScrapView(View):
     def __init__(self, scrap):
         self.scrap = scrap
-        self.sprite = rabbyt.Sprite(scrap.name, scale=scrap.scale)
+        self.sprite = rabbyt.Sprite(self.scrap.name, scale=self.scrap.scale,
+                                    rot=rad_to_deg(self.scrap.angle))
         self.sprite.xy = self.scrap.position
         texture = self.sprite.texture
-        self.radius = self.scrap.scale * (texture.width + texture.height) / 4
+        self.texture_radius = (texture.width + texture.height) / 4
+        self.radius = self.scrap.scale * self.texture_radius
         self.direction = Vector2(cos(self.scrap.angle), sin(self.scrap.angle))
 
     def _get_position(self):
@@ -423,13 +431,24 @@ class ScrapView(View):
         vector = transform - self.scrap.position
         self.radius = abs(vector)
         self.direction = vector.normalized()
+        self.scrap.scale = self.radius / self.texture_radius
+        self.scrap.angle = atan2(self.direction.y, self.direction.x)
+        self.sprite.scale = self.scrap.scale
+        self.sprite.rot = rad_to_deg(self.scrap.angle)
 
     transform = property(_get_transform, _set_transform)
     
     def draw(self, mouse_radius):
         self.sprite.render()
         glDisable(GL_TEXTURE_2D)
+        glColor3f(0, 0, 0)
+        glLineWidth(3)
+        draw_circle(self.scrap.position, mouse_radius)
+        draw_circle(self.scrap.position, self.radius)
+        draw_circle(self.scrap.position + self.radius * self.direction,
+                    mouse_radius)
         glColor3f(1, 1, 1)
+        glLineWidth(1)
         draw_circle(self.scrap.position, mouse_radius)
         draw_circle(self.scrap.position, self.radius)
         draw_circle(self.scrap.position + self.radius * self.direction,
@@ -455,9 +474,9 @@ class SkinEditor(Screen):
             self.skin = load_object('torn-skin.pickle')
         except:
             self.skin = Skin()
+            self.skin.scraps.append(Scrap(name='torso.png', scale=0.005))
             self.skin.scraps.append(Scrap(name='head.png', scale=0.005))
         self.skin_view = SkinView(self.skin)
-        self.controller = None
 
     def on_draw(self):
         self.window.clear()
@@ -475,15 +494,11 @@ class SkinEditor(Screen):
         mouse_circle = Circle(mouse_point, mouse_radius)
         for scrap_view in self.skin_view.scrap_views:
             if mouse_circle.intersect(scrap_view.position):
-                self.controller = ScrapPositionController(self, scrap_view)
-
-    def on_mouse_drag(self, x, y, dx, dy, button, modifiers):
-        if self.controller is not None:
-            self.controller.on_mouse_drag(x, y, dx, dy, button, modifiers)
-
-    def on_mouse_release(self, x, y, button, modifiers):
-        if self.controller is not None:
-            self.controller.on_mouse_release(x, y, button, modifiers)
+                ScrapPositionController(self, scrap_view)
+                break
+            if mouse_circle.intersect(scrap_view.transform):
+                ScrapTransformController(self, scrap_view)
+                break
 
 class Controller(object):
     pass
@@ -492,13 +507,31 @@ class ScrapPositionController(object):
     def __init__(self, editor, scrap_view):
         self.editor = editor
         self.scrap_view = scrap_view
+        self.editor.window.push_handlers(self)
 
     def on_mouse_drag(self, x, y, dx, dy, button, modifiers):
         position = self.editor.camera.get_world_point(Vector2(x, y))
         self.scrap_view.position = position
+        return pyglet.event.EVENT_HANDLED
 
     def on_mouse_release(self, x, y, button, modifiers):
-        self.editor.controller = None
+        self.editor.window.pop_handlers()
+        return pyglet.event.EVENT_HANDLED
+
+class ScrapTransformController(object):
+    def __init__(self, editor, scrap_view):
+        self.editor = editor
+        self.scrap_view = scrap_view
+        self.editor.window.push_handlers(self)
+
+    def on_mouse_drag(self, x, y, dx, dy, button, modifiers):
+        transform = self.editor.camera.get_world_point(Vector2(x, y))
+        self.scrap_view.transform = transform
+        return pyglet.event.EVENT_HANDLED
+
+    def on_mouse_release(self, x, y, button, modifiers):
+        self.editor.window.pop_handlers()
+        return pyglet.event.EVENT_HANDLED
 
 class Pose(object):
     def __init__(self, skeleton):
@@ -552,12 +585,11 @@ class AnimationEditor(Screen):
         self.draw_timeline()
 
     def draw_pose(self):
-        glColor3f(1, 1, 1)
+        glColor3f(0, 0, 0)
         draw_polygon(self.skeleton.torso.vertices, True)
         for i, limb in enumerate(self.drag_limbs):
-            glColor3f(1, 1, 1)
+            glColor3f(0, 0, 0)
             draw_polygon(limb.vertices, limb.closed)
-            glColor3f(i != self.limb_index, 1, i != self.limb_index)
             draw_circle(limb.end_point,
                         self.screen_epsilon / self.camera.scale)
 
@@ -567,12 +599,13 @@ class AnimationEditor(Screen):
             point_count += 1
         width = self.window.width / point_count
         y = 2 * self.screen_epsilon
-        glColor3f(1, 1, 1)
+        glColor3f(0.5, 0.5, 0.5)
         draw_polygon([(width / 2, y), (self.window.width - width / 2, y)],
                      closed=False)
         for i in xrange(point_count):
             current = (i % len(self.animation.poses)) == self.pose_index
-            glColor3f(not current, 1, not current)
+            color = 0 if current else 0.5
+            glColor3f(color, color, color)
             x = width / 2 + i * width
             draw_circle((x, y), self.screen_epsilon)
 
@@ -655,7 +688,6 @@ Options:
 
     fps = '--fps' in sys.argv
     fullscreen = '--fullscreen' in sys.argv
-    rabbyt.set_default_attribs()
     window = MyWindow(fps=fps, fullscreen=fullscreen)
     pyglet.app.run()
 
