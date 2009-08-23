@@ -380,8 +380,8 @@ class SkeletonEditor(Screen):
 class Scrap(object):
     def __init__(self, name, position=None, scale=1, angle=0):
         if position is None:
-            position = Vector2()
-        assert isinstance(position, Vector2)
+            position = Point2()
+        assert isinstance(position, Point2)
         assert type(scale) in (int, float)
         assert type(angle) in (int, float)
         self.name = name
@@ -400,10 +400,32 @@ class ScrapView(View):
     def __init__(self, scrap):
         self.scrap = scrap
         self.sprite = rabbyt.Sprite(scrap.name, scale=scrap.scale)
+        self.sprite.xy = self.scrap.position
         texture = self.sprite.texture
         self.radius = self.scrap.scale * (texture.width + texture.height) / 4
         self.direction = Vector2(cos(self.scrap.angle), sin(self.scrap.angle))
 
+    def _get_position(self):
+        return self.scrap.position
+
+    def _set_position(self, position):
+        assert isinstance(position, Point2)
+        self.scrap.position[:] = position
+        self.sprite.xy = position
+
+    position = property(_get_position, _set_position)
+
+    def _get_transform(self):
+        return self.scrap.position + self.radius * self.direction
+
+    def _set_transform(self, transform):
+        assert isinstance(transform, Point2)
+        vector = transform - self.scrap.position
+        self.radius = abs(vector)
+        self.direction = vector.normalized()
+
+    transform = property(_get_transform, _set_transform)
+    
     def draw(self, mouse_radius):
         self.sprite.render()
         glDisable(GL_TEXTURE_2D)
@@ -435,6 +457,7 @@ class SkinEditor(Screen):
             self.skin = Skin()
             self.skin.scraps.append(Scrap(name='head.png', scale=0.005))
         self.skin_view = SkinView(self.skin)
+        self.controller = None
 
     def on_draw(self):
         self.window.clear()
@@ -445,6 +468,37 @@ class SkinEditor(Screen):
 
     def on_close(self):
         save_object(self.skin, 'torn-skin.pickle')
+
+    def on_mouse_press(self, x, y, button, modifiers):
+        mouse_point = self.camera.get_world_point(Vector2(x, y))
+        mouse_radius = self.mouse_radius / self.camera.scale
+        mouse_circle = Circle(mouse_point, mouse_radius)
+        for scrap_view in self.skin_view.scrap_views:
+            if mouse_circle.intersect(scrap_view.position):
+                self.controller = ScrapPositionController(self, scrap_view)
+
+    def on_mouse_drag(self, x, y, dx, dy, button, modifiers):
+        if self.controller is not None:
+            self.controller.on_mouse_drag(x, y, dx, dy, button, modifiers)
+
+    def on_mouse_release(self, x, y, button, modifiers):
+        if self.controller is not None:
+            self.controller.on_mouse_release(x, y, button, modifiers)
+
+class Controller(object):
+    pass
+
+class ScrapPositionController(object):
+    def __init__(self, editor, scrap_view):
+        self.editor = editor
+        self.scrap_view = scrap_view
+
+    def on_mouse_drag(self, x, y, dx, dy, button, modifiers):
+        position = self.editor.camera.get_world_point(Vector2(x, y))
+        self.scrap_view.position = position
+
+    def on_mouse_release(self, x, y, button, modifiers):
+        self.editor.controller = None
 
 class Pose(object):
     def __init__(self, skeleton):
