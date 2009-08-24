@@ -11,6 +11,7 @@ from pyglet.gl import *
 import rabbyt
 import random
 import sys
+from torn import ik
 
 def rad_to_deg(angle_rad):
     return angle_rad * 180 / pi
@@ -120,58 +121,6 @@ class Polygon(object):
         lengths = [e.length for e in self.edges]
         lengths.sort()
         return max(0, lengths[-1] - sum(lengths[:-1]))
-
-    def solve(self, end_point):
-        if not self.closed:
-            if len(self.vertices) == 2:
-                self._solve_one_edge(end_point)
-            elif len(self.vertices) == 3:
-                self._solve_two_edges(end_point)
-
-    def _solve_one_edge(self, end_point):
-        if end_point != self.starting_point:
-            vector = end_point - self.starting_point
-            vector.normalize()
-            self.vertices[1] = self.starting_point + self.max_radius * vector
-
-    def _solve_two_edges(self, end_point):
-        v = end_point - self.starting_point
-        d = abs(v)
-        d1, d2 = self.lengths
-        if d == 0:
-            v = self.vertices[1] - self.vertices[0]
-            v.normalize()
-            self.vertices[2] = self.vertices[1] - d2 * v
-        elif d >= self.max_radius:
-            v.normalize()
-            self.vertices[1] = self.vertices[0] + d1 * v
-            self.vertices[2] = self.vertices[1] + d2 * v
-        elif d <= self.min_radius:
-            v.normalize()
-            if d1 < d2:
-                v = -v
-            self.vertices[1] = self.vertices[0] + d1 * v
-            self.vertices[2] = self.vertices[1] - d2 * v
-        else:
-            # Closed form solution 2 from "Oh My God, I Inverted Kine!" by
-            # Jeff Lander.
-            #
-            # http://www.darwin3d.com/gamedev/articles/col0998.pdf
-            a3 = atan2(v.y, v.x)
-            a4 = acos((v.x ** 2 + v.y ** 2 + d1 ** 2 -
-                       d2 ** 2) / (2 * d1 * d))
-
-            # Don't mirror the polygon.
-            v1 = self.vertices[1] - self.vertices[0]
-            v2 = self.vertices[2] - self.vertices[1]
-            z = v1.x * v2.y - v2.x * v1.y
-            if z < 0:
-                a = a3 + a4
-            else:
-                a = a3 - a4
-
-            self.vertices[1] = self.vertices[0] + d1 * Vector2(cos(a), sin(a))
-            self.vertices[2] = end_point.copy()
 
 class Skeleton(object):
     def __init__(self):
@@ -569,7 +518,7 @@ class AnimationEditor(Screen):
         pose = self.animation.poses[self.pose_index]
         for i, limb in enumerate(self.skeleton.limbs):
             limb = limb.copy()
-            limb.solve(pose.end_points[i])
+            ik.solve(limb, pose.end_points[i])
             limbs.append(limb)
         return limbs
 
@@ -625,7 +574,7 @@ class AnimationEditor(Screen):
             return
         mouse_point = self.camera.get_world_point(Point2(x, y))
         limb = self.skeleton.limbs[self.limb_index].copy()
-        limb.solve(mouse_point)
+        ik.solve(limb, mouse_point)
         self.drag_limbs[self.limb_index] = limb
         pose = self.animation.poses[self.pose_index]
         pose.end_points[self.limb_index] = limb.end_point.copy()
