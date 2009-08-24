@@ -156,10 +156,12 @@ class MyWindow(pyglet.window.Window):
         self.fps_display = pyglet.clock.ClockDisplay()
         if '--animation-editor' in sys.argv:
             self.my_screen = AnimationEditor(self)
+        elif '--skeleton-editor' in sys.argv:
+            self.my_screen = SkeletonEditor(self)
         elif '--skin-editor' in sys.argv:
             self.my_screen = SkinEditor(self)
         else:
-            self.my_screen = SkeletonEditor(self)
+            self.my_screen = GameScreen(self)
 
     def on_draw(self):
         self.my_screen.on_draw()
@@ -632,6 +634,8 @@ Options:
   --animation-editor    Start the animation editor.
   --fullscreen          Enable fullscreen mode.
   -h, --help            You're looking at it.
+  --skeleton-editor     Start the skeleton editor.
+  --skin-editor         Start the skin editor.
 """.strip()
         return
 
