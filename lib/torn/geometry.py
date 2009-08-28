@@ -2,7 +2,7 @@ from euclid import *
 from itertools import*
 from math import *
 
-__all__ = ['Polygon']
+__all__ = ['Polygon', 'is_point_in_polygon']
 
 class Polygon(object):
     def __init__(self, vertices, closed=True):
@@ -43,3 +43,17 @@ class Polygon(object):
 
     def reverse(self):
         self.vertices.reverse()
+
+def is_point_in_polygon(point, vertices):
+    """
+    http://local.wasp.uwa.edu.au/~pbourke/geometry/insidepoly/
+    """
+    count = 0
+    x, y = point
+    for v1, v2 in izip(vertices, vertices[1:] + vertices[:1]):
+        x1, y1 = v1
+        x2, y2 = v2
+        if min(y1, y2) < y <= max(y1, y2) and x <= max(x1, x2) and y1 != y2:
+            if x1 == x2 or x <= (y - y1) * (x2 - x1) / (y2 - y1) + x1:
+                count += 1
+    return count % 2 != 0
