@@ -226,11 +226,9 @@ class Game(object):
         _, shapes = self.world.Query(aabb, 1000)
         bodies = [s.GetBody() for s in shapes]
         if len(bodies) == 1:
-            joint_def = b2MouseJointDef()
-            joint_def.body1 = self.world.GetGroundBody()
-            joint_def.body2 = bodies[0]
-            joint_def.maxForce = 1000 * bodies[0].massData.mass
-            joint_def.target = tuple(point)
+            joint_def = b2RevoluteJointDef()
+            joint_def.Initialize(bodies[0], self.world.GetGroundBody(),
+                                 tuple(point))
             self.world.CreateJoint(joint_def)
         elif len(bodies) == 2:
             joint_def = b2RevoluteJointDef()
