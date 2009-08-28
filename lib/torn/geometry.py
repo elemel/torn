@@ -36,18 +36,6 @@ class Polygon(object):
         return self.vertices[0 if self.closed else -1]
 
     @property
-    def max_radius(self):
-        return 0 if self.closed else sum(self.lengths)
-
-    @property
-    def min_radius(self):
-        if self.closed or len(self.vertices) <= 1:
-            return 0
-        lengths = [e.length for e in self.edges]
-        lengths.sort()
-        return max(0, lengths[-1] - sum(lengths[:-1]))
-
-    @property
     def area(self):
         """
         http://local.wasp.uwa.edu.au/~pbourke/geometry/clockwise/

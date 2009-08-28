@@ -477,9 +477,8 @@ class AnimationEditor(Screen):
         limbs = []
         pose = self.animation.poses[self.pose_index]
         for i, limb in enumerate(self.skeleton.limbs):
-            limb = limb.copy()
-            ik.solve(limb, pose.end_points[i])
-            limbs.append(limb)
+            vertices = ik.solve(limb.vertices, pose.end_points[i])
+            limbs.append(Polygon(vertices, closed=False))
         return limbs
 
     def on_close(self):
@@ -533,9 +532,9 @@ class AnimationEditor(Screen):
         if self.limb_index is None:
             return
         mouse_point = self.camera.get_world_point(Point2(x, y))
-        limb = self.skeleton.limbs[self.limb_index].copy()
-        ik.solve(limb, mouse_point)
-        self.drag_limbs[self.limb_index] = limb
+        limb = self.skeleton.limbs[self.limb_index]
+        vertices = ik.solve(limb.vertices, mouse_point)
+        self.drag_limbs[self.limb_index] = Polygon(vertices, closed=False)
         pose = self.animation.poses[self.pose_index]
         pose.end_points[self.limb_index] = limb.end_point.copy()
 
