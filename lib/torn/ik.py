@@ -2,21 +2,23 @@ from euclid import *
 from itertools import *
 from math import *
 
+__all__ = ['solve']
+
 def solve(vertices, target):
     if len(vertices) == 2:
-        return _solve_one_edge(vertices, target)
+        return solve_one_edge(vertices, target)
     elif len(vertices) == 3:
-        return _solve_two_edges(vertices, target)
+        return solve_two_edges(vertices, target)
     else:
         return vertices
 
-def _solve_one_edge(vertices, target):
+def solve_one_edge(vertices, target):
     v1, v2 = vertices
     if v1 == target:
         return vertices
     return v1, v1 + abs(v2 - v1) * (target - v1).normalize()
 
-def _solve_two_edges(vertices, target):
+def solve_two_edges(vertices, target):
     v1, v2, v3 = vertices
     u = target - v1
     d = abs(u)
