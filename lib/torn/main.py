@@ -445,7 +445,7 @@ class ScrapTransformController(object):
 class Pose(object):
     def __init__(self, skeleton):
         assert isinstance(skeleton, Skeleton)
-        self.end_points = [l.end_point.copy() for l in skeleton.limbs]
+        self.targets = [l.vertices[-1].copy() for l in skeleton.limbs]
 
 class Animation(object):
     def __init__(self, skeleton, looped=True):
@@ -477,7 +477,7 @@ class AnimationEditor(Screen):
         limbs = []
         pose = self.animation.poses[self.pose_index]
         for i, limb in enumerate(self.skeleton.limbs):
-            vertices = ik.solve(limb.vertices, pose.end_points[i])
+            vertices = ik.solve(limb.vertices, pose.targets[i])
             limbs.append(Polygon(vertices, closed=False))
         return limbs
 
@@ -498,7 +498,7 @@ class AnimationEditor(Screen):
         for i, limb in enumerate(self.drag_limbs):
             glColor3f(0, 0, 0)
             draw_polygon(limb.vertices, limb.closed)
-            draw_circle(limb.end_point,
+            draw_circle(limb.vertices[-1],
                         self.screen_epsilon / self.camera.scale)
 
     def draw_timeline(self):
@@ -524,7 +524,7 @@ class AnimationEditor(Screen):
         epsilon = self.screen_epsilon / self.camera.scale
         mouse_circle = Circle(mouse_point, epsilon)
         for i, limb in enumerate(self.drag_limbs):
-            if mouse_circle.intersect(limb.end_point):
+            if mouse_circle.intersect(limb.vertices[-1]):
                 self.limb_index = i
                 break
 
@@ -536,7 +536,7 @@ class AnimationEditor(Screen):
         vertices = ik.solve(limb.vertices, mouse_point)
         self.drag_limbs[self.limb_index] = Polygon(vertices, closed=False)
         pose = self.animation.poses[self.pose_index]
-        pose.end_points[self.limb_index] = limb.end_point.copy()
+        pose.targets[self.limb_index] = vertices[-1].copy()
 
     def on_mouse_release(self, x, y, button, modifiers):
         self.limb_index = None

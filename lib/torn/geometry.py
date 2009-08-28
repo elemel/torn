@@ -28,23 +28,14 @@ class Polygon(object):
         return [e.length for e in self.edges]
 
     @property
-    def starting_point(self):
-        return self.vertices[0]
-
-    @property
-    def end_point(self):
-        return self.vertices[0 if self.closed else -1]
-
-    @property
     def area(self):
         """
         http://local.wasp.uwa.edu.au/~pbourke/geometry/clockwise/
         """
         if not self.closed:
             return 0
-        return sum(v1.x * v2.y - v2.x * v1.y
-                   for v1, v2 in izip(self.vertices,
-                                      self.vertices[1:] + self.vertices[:1]))
+        edges = izip(self.vertices, self.vertices[1:] + self.vertices[:1])
+        return sum(v1.x * v2.y - v2.x * v1.y for v1, v2 in edges) / 2
 
     @property
     def clockwise(self):
