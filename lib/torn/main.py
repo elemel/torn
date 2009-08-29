@@ -586,10 +586,10 @@ def main():
         print """
 Options:
   --animation-editor    Start the animation editor.
-  --fullscreen          Enable fullscreen mode.
   -h, --help            You're looking at it.
   --skeleton-editor     Start the skeleton editor.
   --skin-editor         Start the skin editor.
+  --windowed            Enable windowed mode.
 """.strip()
         return
 

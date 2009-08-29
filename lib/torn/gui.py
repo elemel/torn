@@ -269,7 +269,11 @@ class EditSkeletonLayer(Layer):
     def _drag_line(self, mouse_circle):
         for polygon in self.level.polygons:
             for i, edge in enumerate(polygon.edges):
-                connection = mouse_circle.c.connect(edge)
+                v1, v2 = edge
+                if v1 == v2:
+                    connection = mouse_circle.c.connect(v1)
+                else:
+                    connection = mouse_circle.c.connect(LineSegment2(v1, v2))
                 if connection.length < mouse_circle.r:
                     vertex = connection.p2.copy()
                     polygon.vertices[i + 1:i + 1] = [vertex]
@@ -322,7 +326,7 @@ class TornWindow(pyglet.window.Window):
 
 def main():
     fps = '--fps' in sys.argv
-    fullscreen = '--fullscreen' in sys.argv
+    fullscreen = '--windowed' not in sys.argv
     window = TornWindow(fps=fps, fullscreen=fullscreen)
     level = Level()
     level.polygons.append(Polygon([Point2(), Point2(1, 1), Point2(1, 0)]))
