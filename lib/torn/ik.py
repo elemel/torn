@@ -1,5 +1,4 @@
 from euclid import *
-from itertools import *
 from math import *
 
 __all__ = ['solve']
