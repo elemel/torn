@@ -97,13 +97,6 @@ class Skeleton(object):
             vertices.extend(limb.vertices)
         return vertices
 
-    @property
-    def edges(self):
-        edges = list(self.torso.edges)
-        for limb in self.limbs:
-            edges.extend(limb.edges)
-        return edges
-
 class MyWindow(pyglet.window.Window):
     def __init__(self, fps=False, **kwargs):
         super(MyWindow, self).__init__(**kwargs)
@@ -242,15 +235,19 @@ class SkeletonEditor(Screen):
 
         # Last option, create a new limb.
         if self.drag_vertex is None:
-            self.drag_vertex = point.copy()
-            limb = Polygon([point.copy(), self.drag_vertex], closed=False)
+            limb = Polygon([point, point], closed=False)
+            self.drag_vertex = limb.vertices[-1]
             self.skeleton.limbs.append(limb)
 
     def drag_edge(self, point, epsilon):
         assert isinstance(point, Point2)
         for polygon in self.skeleton.polygons:
             for i, edge in enumerate(polygon.edges):
-                connection = point.connect(edge)
+                v1, v2 = edge
+                if v1 == v2:
+                    connection = point.connect(v1)
+                else:
+                    connection = point.connect(LineSegment2(v1, v2))
                 if connection.length < epsilon:
                     vertex = connection.p2.copy()
                     polygon.vertices[i + 1:i + 1] = [vertex]
